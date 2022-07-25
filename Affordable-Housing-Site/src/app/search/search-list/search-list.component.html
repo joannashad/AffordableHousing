@@ -172,10 +172,11 @@
             </div>
            
             <div class="col-span-3">
-                  <app-esri-map
+                  <app-esri-map #child
                     [center]="mapCenter"
                     [basemap]="basemapType"
                     [zoom]="mapZoomLevel"
+                    [filterVariable] = "filterVariable"
                   >
                   </app-esri-map>
             </div>
@@ -201,8 +202,6 @@
           <mat-cell *matCellDef="let product"> 
             <a [routerLink]="['/products', product.id]" style="color: #004B8D;">{{product.name}} </a>
           </mat-cell>
-          <!-- <mat-cell *matCellDef="let product of products"> 
-            <a [routerLink]="['/products', product.id]" style="color: #004B8D;">{{product.name}} </a></mat-cell> -->
         </ng-container>
 
         <!-- Neighborhood Column -->
