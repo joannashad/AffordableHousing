@@ -16,13 +16,11 @@ import { Product } from "src/app/shared/data/product";
 import { energyDB } from "src/app/shared/data/energy";
 import esri = __esri; // Esri TypeScript Types
 import {ActivatedRoute} from '@angular/router';
-import * as GraphicsLayer from 'esri/layers/GraphicsLayer';
-import * as Point from 'esri/geometry/Point';
-import * as Graphic from 'esri/Graphic';
-import * as webMercatorUtils from 'esri/geometry/support/webMercatorUtils';
 import {} from 'esri/popup/FieldInfo';
 import {} from 'esri/symbols/SimpleFillSymbol';
 import {} from 'esri/popup/content/Content';
+import { filter } from "esri/core/promiseUtils";
+import * as reactiveUtils from "esri/core/reactiveUtils";
 
 
 
@@ -53,7 +51,7 @@ export class EsriMapComponent implements OnInit, OnDestroy {
   private _basemap = "streets-navigation-vector"; //list of basemaps @ https://developers.arcgis.com/javascript/3/jsapi/esri.basemaps-amd.html#topo
   private _loaded = false;
   private _view!: esri.MapView;
-  
+  private _filterVariable = '';
 
   get mapLoaded(): boolean {
     return this._loaded;
@@ -86,6 +84,16 @@ export class EsriMapComponent implements OnInit, OnDestroy {
     return this._basemap;
   }
 
+  //FILTERING MARKERS: sets search string from search bar
+  @Input()
+  set filterVariable(filterVariable: string) {
+    this._filterVariable = filterVariable;
+  }
+
+  //FILTERING MARKERS: gets search string from search bar
+  get filterVariable(): string {
+    return this._filterVariable;
+  }
   getProducts(): Product[] {
     return productsDB.Product;
   }
@@ -102,7 +110,7 @@ export class EsriMapComponent implements OnInit, OnDestroy {
     });
   }
 
-
+ 
 
   async initializeMap() {
     try {
@@ -119,6 +127,8 @@ export class EsriMapComponent implements OnInit, OnDestroy {
 
       const map: esri.Map = new EsriMap(mapProperties);
 
+      const filterVariable = this._filterVariable
+
       // Initialize the MapView
       const mapViewProperties: esri.MapViewProperties = {
         container: this.mapViewEl.nativeElement,
@@ -128,7 +138,7 @@ export class EsriMapComponent implements OnInit, OnDestroy {
       };
 
       //function that adds points to the map
-      this.setGraphics(map)
+      this.setGraphics(map, filterVariable)
       
       this._view = new EsriMapView(mapViewProperties);
       await this._view.when();
@@ -145,9 +155,14 @@ export class EsriMapComponent implements OnInit, OnDestroy {
       console.log("mapView ready: ", this._view.ready);
       this._loaded = this._view.ready;
       this.mapLoadedEvent.emit(true);
+
     });
   }
 
+  notifyMe() {
+    console.log(this.filterVariable);
+    return true;
+  }
   ngOnDestroy() {
     // if (this._view) {
     //   // destroy the map view
@@ -159,7 +174,11 @@ export class EsriMapComponent implements OnInit, OnDestroy {
     return  "<font size='1.5'>" + title
   }
 
-  private setGraphics(map: esri.Map) {
+  setImgURL(color: String) {
+    return  "'https://maps.google.com/mapfiles/ms/icons/" + color + ".png'" 
+  }
+
+  private setGraphics(map: esri.Map, filter: string) {
     
     loadModules([
       'esri/layers/GraphicsLayer', 
@@ -169,102 +188,96 @@ export class EsriMapComponent implements OnInit, OnDestroy {
       'esri/geometry/support/webMercatorUtils',
       'esri/popup/FieldInfo',
       'esri/symbols/SimpleFillSymbol',
-      'esri/popup/content/Content']).then(([GraphicsLayer, PopupTemplate, Point, Graphic, webMercatorUtils]) => { 
+      'esri/popup/content/Content',
+      'esri/symbols/PictureMarkerSymbol',
+      'esri/popup/FieldInfo']).then(([GraphicsLayer, PopupTemplate, Point, Graphic, webMercatorUtils, PictureMarkerSymbol, FieldInfo]) => { 
     
         var graphicsLayer = new GraphicsLayer();
 
         map.add(graphicsLayer)
 
       for (let energy of energyDB.energy){
+
         // Create a point
           var point = new Point ({
           longitude: energy.lng,
           latitude: energy.lat,
         });
 
-        var SimpleFillSymbol = {
-          type: "simple-marker", //
-          color: energy.color, 
-          size: energy.cirlceSize,
-          style: "circle",
-          Text: energy.energyRating,
-          outline: {
-            color:  energy.color,
-            width: 1
-          },
-          label: energy.energyRating
-        };
-          var pointGraphic = new Graphic({
-          geometry: webMercatorUtils.geographicToWebMercator(point),
-          symbol: SimpleFillSymbol
-        });
-/*
-          var template = new PopupTemplate ({
-         title: this.setTitle(product.name),
-           // title: "Property Details",
-          content: [{
-            type: "text",
-            text: 
-            "<table ><tr><th style='border: 1px solid grey; padding: 10px''>Name:  </th> <td style='border: 1px solid grey; padding: 10px''> <a href='localhost:4200/contacts' style='color: #004B8D;'>" + product.name + "</a></td></tr>" +
-            "<tr><th style='border: 1px solid grey; padding: 10px''>Address:  </th><td style='border: 1px solid grey; padding: 10px'>" + product.address + "</td></tr></table>"
-          }]
-        })
-          ;
-
-          pointGraphic.popupTemplate = template
-*/
-         var pointGraphic2 = new Graphic({
-         geometry: webMercatorUtils.geographicToWebMercator(point),
-         symbol: SimpleFillSymbol
-       });
-
-       graphicsLayer.add(pointGraphic);    
-
       }
 
        for (let product of productsDB.Product){
-        // Create a point
-       var point2 = new Point ({
-         longitude: product.lng,
-         latitude: product.lat
-       });
 
-       var PropertySymbol2 = {
-         type: "simple-marker", //
-         color: [251,52,153], 
-         size: 15,
-         style: "square",
-         text: 
-         "<table ><tr><th style='border: 1px solid grey; padding: 10px''>Name:  </th> <td style='border: 1px solid grey; padding: 10px''> <a href='localhost:4200/contacts' style='color: #004B8D;'>" + product.name + "</a></td></tr>" +
-         "<tr><th style='border: 1px solid grey; padding: 10px''>Address:  </th><td style='border: 1px solid grey; padding: 10px'>" + product.address + "</td></tr></table>",
-         outline: {
-           color: [0, 0, 255], // black
-           width: 1
-         }
-       };
-         var pointGraphic2 = new Graphic({
-         geometry: webMercatorUtils.geographicToWebMercator(point2),
-         symbol: PropertySymbol2
-       });
+        //FILTERING MARKERS: this only loads markers that contain filterVariable text from search bar
+        //
 
-       var template = new PopupTemplate ({
-         title: this.setTitle(product.name),
-           // title: "Property Details",
-         content: [{
-           type: "text",
-           text: 
-           "<table ><tr><th style='border: 1px solid grey; padding: 10px''>Name:  </th> <td style='border: 1px solid grey; padding: 10px''> <a href='localhost:4200/contacts' style='color: #004B8D;'>" + product.name + "</a></td></tr>" +
-           "<tr><th style='border: 1px solid grey; padding: 10px''>Address:  </th><td style='border: 1px solid grey; padding: 10px'>" + product.address + "</td></tr></table>"
-         }]
-       });
-         pointGraphic2.popupTemplate = template
-
-       graphicsLayer.add(pointGraphic2);    
-
+        if(filter === null) {
+          filter = " ";
         }
 
+        if( (product.address.toLowerCase().includes(filter.toLowerCase()))  || product.neighborhood.toLowerCase().includes(filter.toLowerCase()) ) {
 
-      
+            // Create a point
+          var point2 = new Point ({
+            longitude: product.lng,
+            latitude: product.lat
+          });
+
+          var propertySymbol = {
+            type: 'picture-marker',
+            url: "https://maps.google.com/mapfiles/ms/icons/" + product.color + ".png", 
+            contentType: 'image/png',
+            width: '36px',
+            height: '32px',
+            xoffset: -10,
+            yoffset: 24
+            };
+
+
+          var pointGraphic2 = new Graphic({
+            geometry: webMercatorUtils.geographicToWebMercator(point2),
+            symbol: propertySymbol
+          });
+
+          var homeMarkerTemplate = new PopupTemplate ({
+            title: "Property Details",
+            content: [
+              {
+                // Autocasts as new TextContent()
+                type: "text",
+                text: "<b>" + product.name + "</b><br><b>Units</b>: " + product.beds + "/" + product.baths 
+                + "<br><b>Rent</b>: $" + product.price + "/month"
+                + "<br><b>Utility Estimate</b>: $" + product.utilityEstimate
+                + "<br><br><a href='http://localhost:4200/products/" + product.id + "' style='color: blue;'> Click here for property details.</a>" ,
+              },
+              {
+                type: "media",
+                mediaInfos: [
+                  {
+                    title: "",
+                    type: "image", // Autocasts as new ImageMediaInfo()
+                    caption: "",
+                    // Autocasts as new ImageMediaInfoValue()
+                    value: {
+                      sourceURL: product.image1
+                    }
+                  }
+                ]
+              }, 
+              {
+                // if attachments are associated with feature, display it.
+                // Autocasts as new AttachmentsContent()
+                type: "attachments"
+              }
+            ]
+          });
+
+            pointGraphic2.popupTemplate = homeMarkerTemplate
+
+          graphicsLayer.add(pointGraphic2);    
+
+        }
+      }
     })
   }
 }
