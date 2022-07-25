@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { productsDB } from '../../shared/data/products';
 import { FormBuilder } from '@angular/forms';
 import {FormControl} from '@angular/forms';
@@ -9,6 +9,10 @@ import { ProductDetailsComponent } from '../../product/product-details/product-d
 import { markersDB } from 'src/app/shared/data/markers';
 import { COMMA, TAB, SPACE, ENTER } from '@angular/cdk/keycodes';
 import { MatTableDataSource } from '@angular/material/table';
+import { DataSource } from '@angular/cdk/collections';
+import { Product } from 'src/app/shared/data/product';
+import { EsriMapComponent } from './esri-map/esri-map.component';
+import * as templates from 'esri/smartMapping/popup/templates';
 
 export const routes: Routes = [
   { path: './products/:id', component: ProductDetailsComponent}
@@ -18,16 +22,13 @@ export interface SearchItem {
   name: string;
 }
 
-// export interface Product {
-//   name: String,
-//   address: String,
-//   rent: number,
-//   rating: number
-// }
+
+
 @Component({
   selector: 'll-search-list',
   templateUrl: './search-list.component.html',
-  styleUrls: ['./search-list.component.scss']
+  styleUrls: ['./search-list.component.scss'],
+  template: '<app-esri-map #child></app-esri-map>'
 })
 
 
@@ -39,7 +40,11 @@ export class SearchListComponent implements OnInit {
     // Set our map properties
     mapCenter = [ -81.379234, 28.538336];
     basemapType = 'streets-navigation-vector';
-    mapZoomLevel = 11;
+    mapZoomLevel = 9;
+    filterVariable = this.setFilterVariable(''); //filter variable initialiezed as empty string 
+
+    @ViewChild('child')
+    private child: EsriMapComponent;
 
     //variable for search by 'address' or 'neighborhood'
     searchPreference: String = '';
@@ -55,13 +60,12 @@ export class SearchListComponent implements OnInit {
     products: any[] = [];
 
 
-    markers: any[] = [];
     isLoaded: boolean = false;
 
     //--- FILTERING TABLE: variables for filtering table by searchbar entry ---//
     positionFilter = new FormControl();
     nameFilter = new FormControl();
-    private filterValues = { address: '' }
+    private filterValues = { address: '', neighborhood: '' }
     dataSource2 = new MatTableDataSource(productsDB.Product)
 
     filteredValues = {
@@ -94,13 +98,15 @@ export class SearchListComponent implements OnInit {
     .subscribe(value => {
       this.filterValues['address'] = value
       this.dataSource2.filter = JSON.stringify(this.filterValues)
+      this.filterVariable = this.setFilterVariable(this.filterValues['address'])
+      this.child.ngOnInit(); //notifies esri child component of event/change
+
     });
     this.dataSource2.filterPredicate = this.createFilter();    
 
     //this assigns values to variables
     setTimeout(() => {
       this.products = productsDB.Product;
-      this.markers = markersDB.Markers;
       this.isLoaded = true
     }, 500)
 
@@ -154,6 +160,9 @@ export class SearchListComponent implements OnInit {
   }
   //--- End of search bar input functions ---//
 
+  setFilterVariable(s: string) {
+    return s;
+  }
 }
 
 
